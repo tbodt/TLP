@@ -21,6 +21,9 @@ TLP_SYSD    ?= /usr/lib/systemd/system
 TLP_SDSL    ?= /usr/lib/systemd/system-sleep
 TLP_SYSV    ?= /etc/init.d
 TLP_ELOD    ?= /usr/lib/elogind/system-sleep
+TLP_POLKIT  ?= /usr/share/polkit-1/actions
+TLP_DBCONF  ?= /usr/share/dbus-1/system.d
+TLP_DBSVC   ?= /usr/share/dbus-1/system-services
 TLP_SHCPL   ?= /usr/share/bash-completion/completions
 TLP_ZSHCPL  ?= /usr/share/zsh/site-functions
 TLP_FISHCPL ?= /usr/share/fish/vendor_completions.d
@@ -47,6 +50,9 @@ _SYSD    = $(DESTDIR)$(TLP_SYSD)
 _SDSL    = $(DESTDIR)$(TLP_SDSL)
 _SYSV    = $(DESTDIR)$(TLP_SYSV)
 _ELOD    = $(DESTDIR)$(TLP_ELOD)
+_POLKIT  = $(DESTDIR)$(TLP_POLKIT)
+_DBCONF  = $(DESTDIR)$(TLP_DBCONF)
+_DBSVC   = $(DESTDIR)$(TLP_DBSVC)
 _SHCPL   = $(DESTDIR)$(TLP_SHCPL)
 _ZSHCPL  = $(DESTDIR)$(TLP_ZSHCPL)
 _FISHCPL = $(DESTDIR)$(TLP_FISHCPL)
@@ -75,6 +81,7 @@ INFILES = \
 	tlp \
 	tlp.conf \
 	tlp-func-base \
+	tlp-ppd.service \
 	tlp-rdw-nm \
 	tlp-rdw.rules \
 	tlp-rdw-udev \
@@ -201,6 +208,16 @@ ifneq ($(TLP_NO_FISHCOMP),1)
 	ln -sf tlp.fish $(_FISHCPL)/run-on-ac.fish
 	ln -sf tlp.fish $(_FISHCPL)/run-on-bat.fish
 endif
+ifneq ($(TLP_WITH_PPD),0)
+	install -D -m 755 tlp-ppd $(_SBIN)/tlp-ppd
+	install -D -m 644 tlp-ppd.service $(_SYSD)/tlp-ppd.service
+	install -D -m 644 tlp-ppd.policy $(_POLKIT)/tlp-ppd.policy
+	$(foreach BUS_NAME,org.freedesktop.UPower.PowerProfiles net.hadess.PowerProfiles, \
+		install -D -m 644 tlp-ppd.dbus.conf $(_DBCONF)/$(BUS_NAME).conf; \
+		sed -e 's|@BUS_NAME@|$(BUS_NAME)|g' -i $(_DBCONF)/$(BUS_NAME).conf; \
+		install -D -m 644 tlp-ppd.dbus.service $(_DBSVC)/$(BUS_NAME).service; \
+		sed -e 's|@BUS_NAME@|$(BUS_NAME)|g' -i $(_DBSVC)/$(BUS_NAME).service;)
+endif
 	install -D -m 644 de.linrunner.tlp.metainfo.xml $(_META)/de.linrunner.tlp.metainfo.xml
 	install -d -m 755 $(_VAR)
 
@@ -276,6 +293,12 @@ uninstall-tlp:
 	rm -f $(_FISHCPL)/run-on-ac.fish
 	rm -f $(_FISHCPL)/run-on-bat.fish
 	rm -f $(_META)/de.linrunner.tlp.metainfo.xml
+	rm -f $(_SBIN)/tlp-ppd
+	rm -f $(_POLKIT)/tlp-ppd.policy
+	rm -f $(_DBCONF)/org.freedesktop.UPower.PowerProfiles.conf
+	rm -f $(_DBSVC)/org.freedesktop.UPower.PowerProfiles.service
+	rm -f $(_DBCONF)/net.hadess.PowerProfiles.conf
+	rm -f $(_DBSVC)/net.hadess.PowerProfiles.service
 	rm -r $(_VAR)
 
 uninstall-rdw:
